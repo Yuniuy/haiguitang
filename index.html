@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海龟汤 · 迷雾剧场</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+    <style>
+        .font-serif-sc { font-family: 'Noto Serif SC', serif; }
+        .font-fun { font-family: 'ZCOOL+KuaiLe', cursive; }
+        .bg-dark-paper { background-color: #121214; }
+        .bg-card-dark { background-color: #1a1a1e; }
+        .border-mystic { border-color: #2e2e38; }
+    </style>
+</head>
+<body class="bg-dark-paper text-gray-100 min-h-screen font-serif-sc flex flex-col justify-between selection:bg-purple-900 selection:text-white">
+
+    <!-- 顶部导航 -->
+    <header class="border-b border-mystic bg-card-dark/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <span class="text-2xl">🐢</span>
+                <h1 class="text-xl font-bold tracking-wider text-purple-400 font-fun">海龟汤 · 迷雾剧场</h1>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span id="score-badge" class="text-xs bg-purple-950 text-purple-300 px-3 py-1 rounded-full border border-purple-800">已破案: <span id="solved-count">0</span> / 6</span>
+                <button onclick="downloadGameFile()" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded border border-gray-700 transition flex items-center space-x-1">
+                    <span>💾 保存独立网页发给朋友</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主体内容区 -->
+    <main class="max-w-4xl mx-auto px-4 py-6 flex-grow w-full grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- 左侧：剧本选择与状态 (1列) -->
+        <div class="md:col-span-1 space-y-4">
+            <div class="bg-card-dark border border-mystic rounded-xl p-4 shadow-xl">
+                <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">📂 悬疑汤谱库</h2>
+                <div id="soup-list" class="space-y-2">
+                    <!-- 动态生成汤品列表 -->
+                </div>
+            </div>
+
+            <!-- 自动线索板 -->
+            <div class="bg-card-dark border border-mystic rounded-xl p-4 shadow-xl">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider">📌 关键线索备忘</h2>
+                    <span class="text-xs text-purple-400">AI自动提取</span>
+                </div>
+                <div id="clue-board" class="space-y-1.5 text-xs text-gray-300 max-h-48 overflow-y-auto pr-1">
+                    <p class="text-gray-500 italic">向裁判提问并获得“是”的结论后，关键线索会自动记录在这里...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：核心游戏区 (2列) -->
+        <div class="md:col-span-2 flex flex-col space-y-4">
+            
+            <!-- 汤面展示卡片 -->
+            <div class="bg-card-dark border border-mystic rounded-xl p-6 shadow-xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 bg-purple-900/40 text-purple-300 text-xs px-3 py-1 rounded-bl border-l border-b border-purple-800/50" id="soup-difficulty">
+                    难度：⭐⭐
+                </div>
+                <div class="text-xs text-purple-400 font-semibold mb-1" id="soup-tag">【经典悬疑】</div>
+                <h2 class="text-xl font-bold text-white mb-3" id="soup-title">加载中...</h2>
+                <div class="bg-black/30 p-4 rounded-lg border border-white/5 text-gray-200 text-sm leading-relaxed mb-4" id="soup-content">
+                    加载中...
+                </div>
+                
+                <!-- 锦囊与真相按钮 -->
+                <div class="flex flex-wrap gap-2 pt-2 border-t border-mystic justify-between items-center">
+                    <button onclick="showHint()" class="text-xs text-amber-400 hover:text-amber-300 bg-amber-950/30 px-3 py-1.5 rounded border border-amber-900/50 transition">
+                        💡 索取提示 (锦囊)
+                    </button>
+                    <button onclick="revealTruth()" class="text-xs text-rose-400 hover:text-rose-300 bg-rose-950/30 px-3 py-1.5 rounded border border-rose-900/50 transition">
+                        🔑 我猜不出了，直接看真相
+                    </button>
+                </div>
+            </div>
+
+            <!-- 对话/提问交互区 -->
+            <div class="bg-card-dark border border-mystic rounded-xl p-4 shadow-xl flex flex-col h-96">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">💬 向AI裁判自由提问 (问“是/不是”即可)</h3>
+                
+                <!-- 聊天记录滚动区 -->
+                <div id="chat-messages" class="flex-grow overflow-y-auto space-y-3 pr-2 mb-3 text-sm">
+                    <div class="bg-purple-950/40 border border-purple-900/50 p-3 rounded-lg text-purple-200 text-xs">
+                        🤖 <b>裁判已就位：</b>你好！我是本局的海龟汤裁判。你可以随意在下方输入你的推测（例如：“死者是盲人吗？”、“凶手是他的朋友吗？”），我会回答你【是】、【不是】或【无关】。加油把真相还原出来吧！
+                    </div>
+                </div>
+
+                <!-- 快捷提问引导按钮 -->
+                <div id="quick-questions" class="flex flex-wrap gap-1.5 mb-3">
+                    <!-- 动态生成快捷按钮 -->
+                </div>
+
+                <!-- 输入框 -->
+                <div class="flex space-x-2">
+                    <input type="text" id="user-input" placeholder="输入你的推测或问题（如：死者是不是自愿的？）..." 
+                           class="flex-grow bg-black/40 border border-mystic rounded-lg px-4 py-2 text-sm text-gray-100 focus:outline-none focus:border-purple-500 transition"
+                           onkeypress="if(event.key === 'Enter') submitQuestion()">
+                    <button onclick="submitQuestion()" class="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-purple-900/30">
+                        提问
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="text-center py-4 text-xs text-gray-500 border-t border-mystic mt-8">
+        海龟汤 · 迷雾剧场 &copy; 2026 | 逻辑推理与脑洞盛宴
+    </footer>
+
+    <!-- 游戏逻辑脚本 -->
+    <script>
+        // 剧本库数据
+        const soups = [
+            {
+                id: 1,
+                title: "深夜的掌声",
+                tag: "经典悬疑",
+                difficulty: "⭐⭐",
+                content: "一个深夜，男子独自在家里看恐怖电影。看到最惊悚的高潮时，他突然兴奋地用力鼓掌。然而第二天早上，邻居却报警说他死了。请问：发生了什么？",
+                hints: ["提示1：男子身体有什么特殊状况吗？", "提示2：恐怖电影的声音对他来说意味着什么？"],
+                truth: "真相：男子是一位全盲（瞎子）盲人。他一个人在家看恐怖电影，听到恐怖音效时以为是有人潜入他家，情急之下他拼命鼓掌（盲人通过双耳回声定位或辨别方位）。结果因为疯狂鼓掌暴露了自己的准确位置，潜伏在屋内的凶手顺着掌声摸过去将他杀害了。",
+                clues: ["男子在深夜看恐怖电影并鼓掌", "男子实际上是一位盲人", "凶手当时就潜伏在屋内"],
+                qaRules: [
+                    { keywords: ["盲", "瞎", "视力", "看不到"], reply: "【是】男子确实看不见（全盲）。" },
+                    { keywords: ["凶手", "人", "潜入", "家里有人"], reply: "【是】屋里确实还有另一个人（凶手）。" },
+                    { keywords: ["鼓掌", "声音", "定位", "发现"], reply: "【是】鼓掌暴露了他的位置，招致了杀身之祸。" },
+                    { keywords: ["自杀", "心脏病", "吓死"], reply: "【不是】他不是自然死亡或自杀，而是被谋杀的。" }
+                ]
+            },
+            {
+                id: 2,
+                title: "跳楼的盲人",
+                tag: "细思极恐",
+                difficulty: "⭐⭐⭐",
+                content: "一个盲人男子住在大楼的20楼。每天晚上他都会坐电梯下楼去散步。散步回来时，如果电梯里有别人，他会直接坐到20楼回家；如果电梯里只有他一个人，他通常只会坐到10楼，然后走10层楼梯上去。为什么？",
+                hints: ["提示1：电梯的按键高度对于盲人来说有什么不便？", "提示2：为什么有别人的时候能到20楼，没别人只能到10楼？"],
+                truth: "真相：男子个子很矮，或者说他双腿残疾坐在轮椅上，或者个子太矮够不到20楼的按键。当电梯里有别人时，别人可以帮他按20楼；当只有他一个人时，他最高只能够到10楼的按键，所以只能到10楼再爬楼梯（或者拐杖身高限制）。",
+                clues: ["男子身体有身高或肢体上的限制", "他够不到电梯的高层按键", "电梯里有别人时，别人帮了忙"],
+                qaRules: [
+                    { keywords: ["矮", "身高", "够不到", "手短", "轮椅"], reply: "【是】因为他的身高或者身体原因，够不到电梯的高层按钮。" },
+                    { keywords: ["别人", "帮忙", "按电梯"], reply: "【是】有别人的时候，别人顺手帮他按了20楼。" },
+                    { keywords: ["锻炼", "减肥", "健康"], reply: "【不是】不是为了锻炼身体。" }
+                ]
+            },
+            {
+                id: 3,
+                title: "雨夜的生鱼片",
+                tag: "离奇反转",
+                difficulty: "⭐⭐⭐⭐",
+                content: "一个男人去一家高级餐厅点了一盘昂贵的深海生鱼片。吃了一口后，他脸色大变，叫来服务员愤怒地质问：“这真的是深海生鱼片吗？！”服务员看了看确认是的。男人听完后，痛哭流涕，离开餐厅后直接选择了自杀。请问发生了什么？",
+                hints: ["提示1：男人以前经历过什么重大的海难吗？", "提示2：他曾经和同伴在海上漂流过。"],
+                truth: "真相：男人曾经遭遇海难，和另一个同伴在救生筏上在大海上漂流了数周，面临绝境饥饿难耐。当时同伴为了救他，曾割下自己身上的一块肉给他吃，并谎称那是抓到的深海鱼肉。多年后男人在餐厅吃到了真正的深海生鱼片，尝出了当年同伴肉的味道，终于意识到当年同伴牺牲了自己，他内心崩溃绝望，选择自杀赎罪。",
+                clues: ["男人曾经遭遇过海难或极端绝境", "当年他吃过“同伴”送给他的肉", "这盘生鱼片的味道勾起了当年的恐怖回忆"],
+                qaRules: [
+                    { keywords: ["海难", "漂流", "荒岛", "船"], reply: "【是】男人曾经在大海上遭遇过严重的海难。" },
+                    { keywords: ["肉", "同伴", "朋友", "吃人"], reply: "【是】当年他在绝境中吃过同伴身上的肉。" },
+                    { keywords: ["味道", "一样", "辨认"], reply: "【是】餐厅生鱼片的味道和他当年吃过的一模一样，让他想起了真相。" },
+                    { keywords: ["新鲜", "变质", "毒"], reply: "【不是】生鱼片本身没有变质或下毒。" }
+                ]
+            },
+            {
+                id: 4,
+                title: "完美的谋杀",
+                tag: "硬核推理",
+                difficulty: "⭐⭐⭐",
+                content: "夏日的午后，一间密室里发生了一起谋杀案。死者倒在地板上，周围没有任何凶器，门窗紧闭且从内部反锁，房间里也没有打斗痕迹。但奇怪的是，死者的周围有一大滩水，而且尸体本身并没有溺水特征。他是怎么死的？",
+                hints: ["提示1：死者死时房间里有什么常见但会融化的东西？", "提示2：凶器在短时间内消失了。"],
+                truth: "真相：凶手是用一大块冰块做成了一个巨大的冰柱（或者冰人凶器），将死者钉死或重击致死。随着夏日高温，凶器（冰块）完全融化成了水，只留下一滩水渍，而密室和反锁的假象也随之成立，凶手早已金蝉脱壳。",
+                clues: ["凶器是会融化的东西", "现场的水就是凶器本身", "房间门窗紧闭是为了拖延时间让凶器消失"],
+                qaRules: [
+                    { keywords: ["冰", "冰块", "融化", "水"], reply: "【是】现场的水正是由凶器——大冰块融化形成的！" },
+                    { keywords: ["毒", "药"], reply: "【不是】不是中毒身亡。" },
+                    { keywords: ["密室", "反锁"], reply: "【是】凶手利用冰块融化的特性制造了完美的密室假象。" }
+                ]
+            }
+        ];
+
+        let currentSoupIndex = 0;
+        let solvedSoups = new Set();
+
+        // 初始化加载
+        function initGame() {
+            renderSoupList();
+            loadSoup(0);
+        }
+
+        // 渲染左侧汤谱列表
+        function renderSoupList() {
+            const listContainer = document.getElementById('soup-list');
+            listContainer.innerHTML = '';
+            soups.forEach((soup, index) => {
+                const isSolved = solvedSoups.has(soup.id);
+                const isActive = index === currentSoupIndex;
+                
+                let btn = document.createElement('button');
+                btn.className = `w-full text-left px-3 py-2.5 rounded-lg text-xs flex justify-between items-center transition border ${
+                    isActive ? 'bg-purple-900/30 border-purple-500 text-white font-bold' : 'bg-black/20 border-mystic text-gray-400 hover:bg-white/5'
+                }`;
+                btn.innerHTML = `
+                    <span class="truncate pr-2">${index + 1}. ${soup.title}</span>
+                    <span class="flex-shrink-0">${isSolved ? '✅ 已破案' : soup.difficulty}</span>
+                `;
+                btn.onclick = () => switchSoup(index);
+                listContainer.appendChild(btn);
+            });
+            document.getElementById('solved-count').innerText = solvedSoups.size;
+        }
+
+        // 切换汤
+        function switchSoup(index) {
+            currentSoupIndex = index;
+            renderSoupList();
+            loadSoup(index);
+        }
+
+        // 加载具体汤内容
+        function loadSoup(index) {
+            const soup = soups[index];
+            document.getElementById('soup-tag').innerText = `【${soup.tag}】`;
+            document.getElementById('soup-difficulty').innerText = `难度：${soup.difficulty}`;
+            document.getElementById('soup-title').innerText = soup.title;
+            document.getElementById('soup-content').innerText = soup.content;
+
+            // 重置聊天区
+            const chatBox = document.getElementById('chat-messages');
+            chatBox.innerHTML = `
+                <div class="bg-purple-950/40 border border-purple-900/50 p-3 rounded-lg text-purple-200 text-xs">
+                    🤖 <b>裁判已就位：</b>当前剧本《${soup.title}》已加载。请向我提出“是/不是”的问题来推理真相吧！
+                </div>
+            `;
+
+            // 重置线索板
+            const clueBoard = document.getElementById('clue-board');
+            clueBoard.innerHTML = `<p class="text-gray-500 italic">随着提问推进，已确认的线索会显示在这里...</p>`;
+
+            // 生成快捷提问
+            renderQuickQuestions(soup);
+        }
+
+        // 渲染快捷按钮
+        function renderQuickQuestions(soup) {
+            const container = document.getElementById('quick-questions');
+            container.innerHTML = '';
+            
+            // 根据不同汤生成智能快捷提问
+            let samples = ["是不是自杀？", "跟死者的身体状况有关吗？", "现场有其他人吗？"];
+            if(soup.id === 1) samples = ["死者是不是盲人？", "屋里是不是有凶手？", "是不是因为鼓掌？"];
+            if(soup.id === 2) samples = ["男子是不是身高有问题？", "是不是有人帮他按电梯？", "跟电梯层数有关吗？"];
+            if(soup.id === 3) samples = ["男人过去遭遇过海难吗？", "他吃过人肉吗？", "生鱼片味道有问题吗？"];
+            if(soup.id === 4) samples = ["凶器是不是冰块？", "凶器最后融化成水了吗？", "死者是被谋杀的吗？"];
+
+            samples.forEach(q => {
+                let btn = document.createElement('button');
+                btn.className = "text-xs bg-black/40 hover:bg-purple-950/60 text-purple-300 px-2.5 py-1 rounded border border-purple-900/40 transition";
+                btn.innerText = q;
+                btn.onclick = () => {
+                    document.getElementById('user-input').value = q;
+                    submitQuestion();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        // 提交用户提问
+        function submitQuestion() {
+            const input = document.getElementById('user-input');
+            const qText = input.value.trim();
+            if(!qText) return;
+
+            const chatBox = document.getElementById('chat-messages');
+
+            // 添加用户发言
+            chatBox.innerHTML += `
+                <div class="flex justify-end">
+                    <div class="bg-purple-600/30 border border-purple-500/40 text-purple-100 px-3 py-2 rounded-lg max-w-[80%] text-xs">
+                        <b>你：</b> ${qText}
+                    </div>
+                </div>
+            `;
+            input.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // AI 裁判规则判定
+            setTimeout(() => {
+                const soup = soups[currentSoupIndex];
+                let reply = "【无关，请继续】这个问题与核心真相关联不大，换个角度想想？";
+                let matchedClue = null;
+
+                for(let rule of soup.qaRules) {
+                    if(rule.keywords.some(kw => qText.includes(kw))) {
+                        reply = rule.reply;
+                        if(reply.includes("【是】")) {
+                            matchedClue = qText + " -> " + reply.replace("【是】", "");
+                        }
+                        break;
+                    }
+                }
+
+                // 添加裁判回复
+                let badgeColor = reply.includes("【是】") ? "text-emerald-400 border-emerald-800 bg-emerald-950/40" : 
+                                 reply.includes("【不是】") ? "text-rose-400 border-rose-800 bg-rose-950/40" : "text-gray-300 border-gray-700 bg-black/40";
+
+                chatBox.innerHTML += `
+                    <div class="flex justify-start">
+                        <div class="border ${badgeColor} px-3 py-2 rounded-lg max-w-[80%] text-xs">
+                            <b>裁判：</b> ${reply}
+                        </div>
+                    </div>
+                `;
+                chatBox.scrollTop = chatBox.scrollHeight;
+
+                // 如果命中了线索，自动更新线索板
+                if(matchedClue) {
+                    updateClueBoard(matchedClue);
+                }
+
+            }, 400);
+        }
+
+        // 更新线索板
+        function updateClueBoard(newClue) {
+            const clueBoard = document.getElementById('clue-board');
+            if(clueBoard.innerHTML.includes("随着提问推进")) {
+                clueBoard.innerHTML = '';
+            }
+            // 避免重复
+            if(!clueBoard.innerHTML.includes(newClue)) {
+                clueBoard.innerHTML += `<div class="bg-purple-950/20 border border-purple-900/30 p-1.5 rounded text-purple-200">✨ ${newClue}</div>`;
+            }
+        }
+
+        // 提示锦囊
+        function showHint() {
+            const soup = soups[currentSoupIndex];
+            alert("💡 游戏锦囊：\n\n" + soup.hints.join("\n"));
+        }
+
+        // 直接揭晓真相
+        function revealTruth() {
+            const soup = soups[currentSoupIndex];
+            if(confirm("确定要直接查看真相吗？查看后将视为已通关该剧本！")) {
+                solvedSoups.add(soup.id);
+                renderSoupList();
+
+                const chatBox = document.getElementById('chat-messages');
+                chatBox.innerHTML += `
+                    <div class="bg-amber-950/40 border border-amber-800/60 p-4 rounded-lg text-amber-200 text-xs space-y-2">
+                        <h4 class="font-bold text-sm text-amber-300">🔑 完整真相揭晓：</h4>
+                        <p class="leading-relaxed">${soup.truth}</p>
+                    </div>
+                `;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        // 一键打包并下载网页文件
+        function downloadGameFile() {
+            const htmlContent = document.documentElement.outerHTML;
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '海龟汤_迷雾剧场.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            alert("🎉 游戏网页已成功保存为独立文件！你可以把这个文件发到微信、QQ群里，朋友们双击它就能直接玩啦！");
+        }
+
+        // 页面初始化
+        window.onload = initGame;
+    </script>
+</body>
+</html>
